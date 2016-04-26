@@ -1,4 +1,5 @@
 from scipy import misc
+import os
 import time
 import tensorflow as tf
 import vgg
@@ -76,6 +77,9 @@ def main(argv=None):
             for i, raw_image in enumerate(images_t):
                 misc.imsave('out{}.png'.format(i), raw_image)
         return
+
+    if not os.path.exists(FLAGS.MODEL_PATH):
+        os.makedirs(FLAGS.MODEL_PATH)
 
     style_paths = FLAGS.STYLE_IMAGES.split(',')
     style_layers = FLAGS.STYLE_LAYERS.split(',')

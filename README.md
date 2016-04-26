@@ -14,13 +14,13 @@ Also see other settings and hyperparameters in neural_style.py
 
 To train a model for fast stylizing:
 
-`python3 fast-neural-style.py --TRAIN_IMAGES_PATH coco_img_path --STYLE_IMAGES style.png --BATCH_SIZE 4 --MODEL_PATH dir_to_save_model`
+`python3 fast-neural-style.py --TRAIN_IMAGES_PATH coco_img_path --STYLE_IMAGES style.png --BATCH_SIZE 4`
 
 Where `--TRAIN_IMAGES_PATH` points to a directory of JPEGs to train the model. The paper uses the [COCO image dataset](http://msvocds.blob.core.windows.net/coco2014/train2014.zip) (13GB). With my 2GB GTX960 card I can do a batch_size of 3 images. The paper trains the model for 2 epochs (160.000/BATCH_SIZE iteration).
 
 To generate images fast with an already trained model:
 
-`python3 fast-neural-style.py --MODEL_PATH dir_to_saved_model --CONTENT_IMAGES path_to_images_to_transform`
+`python3 fast-neural-style.py --CONTENT_IMAGES path_to_images_to_transform`
 
 ### Requirements
 
