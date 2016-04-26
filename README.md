@@ -17,3 +17,4 @@ TODO:
 - Add download for COCO image dataset
 - Add a pretrained model
 - Add more readme and examples
+- Figure out the dots TV doesn't seem to remove ..
