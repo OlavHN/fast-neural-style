@@ -28,14 +28,21 @@ def get_image(path, size, max_length=True):
     image = tf.image.decode_png(img_bytes, channels=3) if png else tf.image.decode_jpeg(img_bytes, channels=3)
     return preprocess(image, size, max_length)
 
-def image(n, size, path):
+def image(n, size, path, epochs=2, shuffle=True, crop=True):
     filenames = [join(path, f) for f in listdir(path) if isfile(join(path, f))]
+    if not shuffle:
+        filenames = sorted(filenames)
 
-    filename_queue = tf.train.string_input_producer(filenames)
+    png = filenames[0].lower().endswith('png') # If first file is a png, assume they all are
+
+    filename_queue = tf.train.string_input_producer(filenames, num_epochs=epochs, shuffle=shuffle)
     reader = tf.WholeFileReader()
-    _, value = reader.read(filename_queue)
-    image = tf.image.decode_jpeg(value, channels=3)
+    _, img_bytes = reader.read(filename_queue)
+    image = tf.image.decode_png(img_bytes, channels=3) if png else tf.image.decode_jpeg(img_bytes, channels=3)
+
     processed_image = preprocess(image, size, False)
+    if not crop:
+        return tf.train.batch([processed_image], n, dynamic_pad=True)
 
     cropped_image = tf.slice(processed_image, [0,0,0], [size, size, 3])
     cropped_image.set_shape((size, size, 3))
