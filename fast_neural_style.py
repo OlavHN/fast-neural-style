@@ -20,7 +20,7 @@ tf.app.flags.DEFINE_string("STYLE_LAYERS", "relu1_1,relu2_1,relu3_1,relu4_1,relu
 tf.app.flags.DEFINE_string("SUMMARY_PATH", "tensorboard", "Path to store Tensorboard summaries")
 tf.app.flags.DEFINE_string("STYLE_IMAGES", "style.png", "Styles to train")
 tf.app.flags.DEFINE_float("STYLE_SCALE", 1.0, "Scale styles. Higher extracts smaller features")
-tf.app.flags.DEFINE_string("CONTENT_IMAGES", None, "Path to content image(s) to use. Comma separated")
+tf.app.flags.DEFINE_string("CONTENT_IMAGES_PATH", None, "Path to content image(s)")
 tf.app.flags.DEFINE_integer("IMAGE_SIZE", 256, "Size of output image")
 tf.app.flags.DEFINE_integer("BATCH_SIZE", 1, "Number of concurrent images to train on")
 
@@ -37,12 +37,13 @@ def total_variation_loss(layer):
 # TODO: Figure out grams and batch sizes! Doesn't make sense ..
 def gram(layer):
     shape = tf.shape(layer)
+    num_images = shape[0]
     num_filters = shape[3]
     size = tf.size(layer)
-    filters = tf.reshape(layer, tf.pack([-1, num_filters]))
-    gram = tf.matmul(filters, filters, transpose_a=True) / tf.to_float(size)
+    filters = tf.reshape(layer, tf.pack([num_images, -1, num_filters]))
+    grams = tf.batch_matmul(filters, filters, adj_x=True) / tf.to_float(size / FLAGS.BATCH_SIZE)
 
-    return gram
+    return grams
 
 def get_style_features(style_paths, style_layers):
     with tf.Graph().as_default() as g:
@@ -57,13 +58,16 @@ def get_style_features(style_paths, style_layers):
             return sess.run(features)
 
 def main(argv=None):
-    if FLAGS.CONTENT_IMAGES:
-        content_paths = FLAGS.CONTENT_IMAGES.split(',')
-        content_images = tf.pack([reader.get_image(path, FLAGS.IMAGE_SIZE) for path in content_paths])
+    if FLAGS.CONTENT_IMAGES_PATH:
+        content_images = reader.image(
+                FLAGS.BATCH_SIZE,
+                FLAGS.IMAGE_SIZE,
+                FLAGS.CONTENT_IMAGES_PATH,
+                epochs=1,
+                shuffle=False,
+                crop=False)
         generated_images = model.net(content_images / 255.)
 
-        # TODO: Read images from path
-        # TODO: Do size preprocessing
         output_format = tf.saturate_cast(generated_images + reader.mean_pixel, tf.uint8)
         with tf.Session() as sess:
             saver = tf.train.Saver(tf.all_variables())
@@ -71,11 +75,20 @@ def main(argv=None):
             if not file:
                 print('Could not find trained model in {}'.format(FLAGS.MODEL_PATH))
                 return
-            print('Restoring model from {}'.format(file))
+            print('Using model from {}'.format(file))
             saver.restore(sess, file)
-            images_t = sess.run(output_format)
-            for i, raw_image in enumerate(images_t):
-                misc.imsave('out{}.png'.format(i), raw_image)
+            tf.train.start_queue_runners()
+            i = 0
+            start_time = time.time()
+            while True:
+                images_t = sess.run(output_format)
+                elapsed = time.time() - start_time
+                start_time = time.time()
+                print('Time for one batch: {}'.format(elapsed))
+
+                for raw_image in images_t:
+                    i += 1
+                    misc.imsave('out{0:04d}.png'.format(i), raw_image)
         return
 
     if not os.path.exists(FLAGS.MODEL_PATH):
@@ -103,7 +116,8 @@ def main(argv=None):
     for style_gram, layer in zip(style_features_t, style_layers):
         generated_images, _ = tf.split(0, 2, net[layer])
         size = tf.size(generated_images)
-        style_loss += tf.nn.l2_loss(gram(generated_images) - style_gram) / tf.to_float(size)
+        for style_image in style_gram:
+            style_loss += tf.nn.l2_loss(tf.reduce_sum(gram(generated_images) - style_image, 0)) / tf.to_float(size)
     style_loss = style_loss / len(style_layers)
 
     loss = FLAGS.STYLE_WEIGHT * style_loss + FLAGS.CONTENT_WEIGHT * content_loss + FLAGS.TV_WEIGHT * total_variation_loss(generated)
