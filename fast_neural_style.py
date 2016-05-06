@@ -70,25 +70,34 @@ def main(argv=None):
 
         output_format = tf.saturate_cast(generated_images + reader.mean_pixel, tf.uint8)
         with tf.Session() as sess:
-            saver = tf.train.Saver(tf.all_variables())
             file = tf.train.latest_checkpoint(FLAGS.MODEL_PATH)
             if not file:
                 print('Could not find trained model in {}'.format(FLAGS.MODEL_PATH))
                 return
             print('Using model from {}'.format(file))
+            saver = tf.train.Saver()
             saver.restore(sess, file)
-            tf.train.start_queue_runners()
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord)
             i = 0
             start_time = time.time()
-            while True:
-                images_t = sess.run(output_format)
-                elapsed = time.time() - start_time
-                start_time = time.time()
-                print('Time for one batch: {}'.format(elapsed))
+            try:
+                while not coord.should_stop():
+                    print(i)
+                    images_t = sess.run(output_format)
+                    elapsed = time.time() - start_time
+                    start_time = time.time()
+                    print('Time for one batch: {}'.format(elapsed))
 
-                for raw_image in images_t:
-                    i += 1
-                    misc.imsave('out{0:04d}.png'.format(i), raw_image)
+                    for raw_image in images_t:
+                        i += 1
+                        misc.imsave('out{0:04d}.png'.format(i), raw_image)
+            except tf.errors.OutOfRangeError:
+                print('Done training -- epoch limit reached')
+            finally:
+                coord.request_stop()
+
+            coord.join(threads)
         return
 
     if not os.path.exists(FLAGS.MODEL_PATH):
@@ -137,19 +146,27 @@ def main(argv=None):
             print('New model initilized')
             sess.run(tf.initialize_all_variables())
 
-        tf.train.start_queue_runners()
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
         start_time = time.time()
-        while True:
-            _, loss_t, step = sess.run([train_op, loss, global_step])
-            elapsed_time = time.time() - start_time
-            start_time = time.time()
-            if step % 100 == 0:
-                print(step, loss_t, elapsed_time)
-                output_t = sess.run(output_format)
-                for i, raw_image in enumerate(output_t):
-                    misc.imsave('out{}.png'.format(i), raw_image)
-            if step % 10000 == 0:
-                saver.save(sess, FLAGS.MODEL_PATH + '/fast-style-model', global_step=step)
+        try:
+            while not coord.should_stop():
+                _, loss_t, step = sess.run([train_op, loss, global_step])
+                elapsed_time = time.time() - start_time
+                start_time = time.time()
+                if step % 100 == 0:
+                    print(step, loss_t, elapsed_time)
+                    output_t = sess.run(output_format)
+                    for i, raw_image in enumerate(output_t):
+                        misc.imsave('out{}.png'.format(i), raw_image)
+                if step % 10000 == 0:
+                    saver.save(sess, FLAGS.MODEL_PATH + '/fast-style-model', global_step=step)
+        except tf.errors.OutOfRangeError:
+            print('Done training -- epoch limit reached')
+        finally:
+            coord.request_stop()
+
+        coord.join(threads)
 
 if __name__ == '__main__':
     tf.app.run()
