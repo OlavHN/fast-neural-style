@@ -2,7 +2,7 @@
 
 if [ ! -f "imagenet-vgg-verydeep-19.mat" ]; then
     echo "Downloading VGG imagenet weights"
-    curl http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-19.mat > imagenet-vgg-verydeep-19.mat
+    curl http://www.vlfeat.org/matconvnet/models/beta16/imagenet-vgg-verydeep-19.mat > imagenet-vgg-verydeep-19.mat
 else
     echo "VGG imagenet weights already found"
 fi
