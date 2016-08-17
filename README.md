@@ -55,4 +55,4 @@ To generate images fast with an already trained model:
 ### Acknowledgement
 
 - [Chainer implementation] (https://github.com/yusuketomoto/chainer-fast-neuralstyle)
-- [Tensorflow Neural style implementation] (https://github.com/anishathalye/neural-style)
+- [Tensorflow Neural style implementation] (https://github.com/anishathalye/neural-style) (Both inspiration and copied the VGG code)
