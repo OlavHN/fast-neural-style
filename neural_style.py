@@ -72,7 +72,8 @@ def main(argv=None):
     content_layers = FLAGS.CONTENT_LAYERS.split(',')
 
     style_features_t = get_style_features(style_paths, style_layers)
-    *content_features_t, image_t = get_content_features(content_path, content_layers)
+    res = get_content_features(content_path, content_layers)
+    content_features_t, image_t = res[:-1], res[-1]
 
     image = tf.constant(image_t)
     random = tf.random_normal(image_t.shape)
@@ -90,7 +91,8 @@ def main(argv=None):
     for style_gram, layer in zip(style_features_t, style_layers):
         layer_size = tf.size(style_gram)
         style_loss += tf.nn.l2_loss(gram(net[layer]) - style_gram) / tf.to_float(layer_size)
-    style_loss = FLAGS.STYLE_WEIGHT * style_loss / (len(style_layers) * len(style_paths))
+        #style_loss += tf.sqrt(tf.reduce_sum(tf.pow(gram(net[layer]) - style_gram, 2)))
+    style_loss = FLAGS.STYLE_WEIGHT * style_loss
 
     tv_loss = FLAGS.TV_WEIGHT * total_variation_loss(initial)
 
@@ -104,10 +106,10 @@ def main(argv=None):
         sess.run(tf.initialize_all_variables())
         start_time = time.time()
         for step in range(FLAGS.NUM_ITERATIONS):
-            _, loss_t = sess.run([train_op, total_loss])
+            _, loss_t, cl, sl = sess.run([train_op, total_loss, content_loss, style_loss])
             elapsed = time.time() - start_time
             start_time = time.time()
-            print(step, elapsed, loss_t)
+            print(step, elapsed, loss_t, cl, sl)
         image_t = sess.run(output_image)
         with open('out.png', 'wb') as f:
             f.write(image_t)
